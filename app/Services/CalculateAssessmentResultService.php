@@ -9,9 +9,12 @@ use Illuminate\Validation\ValidationException;
 
 class CalculateAssessmentResultService
 {
-    public function calculate(AssessmentAttempt $attempt): AssessmentResult
+    public function calculate(
+        AssessmentAttempt $attempt,
+        bool $timedOut = false
+    ): AssessmentResult
     {
-        return DB::transaction(function () use ($attempt) {
+        return DB::transaction(function () use ($attempt, $timedOut) {
             $attempt = AssessmentAttempt::query()
                 ->with([
                     'version.questions.options',
@@ -31,15 +34,18 @@ class CalculateAssessmentResultService
 
             $answers = $attempt->answers->keyBy('question_id');
 
-            // بررسی پاسخ سؤال‌های اجباری
-            foreach ($questions as $question) {
-                if (
-                    $question->is_required &&
-                    ! $answers->has($question->id)
-                ) {
-                    throw ValidationException::withMessages([
-                        'answers' => 'لطفاً به تمام سؤال‌های اجباری پاسخ دهید.',
-                    ]);
+            // در پایان عادی، پاسخ سؤال‌های اجباری الزامی است.
+            // در پایان ناشی از اتمام زمان، پاسخ‌های موجود محاسبه می‌شوند.
+            if (! $timedOut) {
+                foreach ($questions as $question) {
+                    if (
+                        $question->is_required &&
+                        ! $answers->has($question->id)
+                    ) {
+                        throw ValidationException::withMessages([
+                            'answers' => 'لطفاً به تمام سؤال‌های اجباری پاسخ دهید.',
+                        ]);
+                    }
                 }
             }
 
@@ -104,7 +110,10 @@ class CalculateAssessmentResultService
                 ]
             );
 
-            $attempt->status = 'completed';
+            $attempt->status = $timedOut
+                ? 'timed_out'
+                : 'completed';
+
             $attempt->completed_at = now();
             $attempt->save();
 

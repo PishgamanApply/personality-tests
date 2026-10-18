@@ -15,6 +15,7 @@ class AssessmentAttempt extends Model
         'status',
         'started_at',
         'completed_at',
+        'expires_at',
     ];
 
     protected function casts(): array
@@ -22,6 +23,7 @@ class AssessmentAttempt extends Model
         return [
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'expires_at' => 'datetime',
         ];
     }
 

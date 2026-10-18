@@ -28,6 +28,14 @@ class AssessmentVersionForm
             DateTimePicker::make('published_at')
                 ->label('زمان انتشار')
                 ->nullable(),
-        ]);
+
+            TextInput::make('time_limit_minutes')
+                ->label('حداکثر زمان آزمون (دقیقه)')
+                ->numeric()
+                ->minValue(1)
+                ->maxValue(240)
+                ->default(20)
+                ->required(),
+                    ]);
     }
 }

@@ -13,6 +13,7 @@ class AssessmentVersion extends Model
         'version',
         'scoring_config',
         'published_at',
+        'time_limit_minutes',
     ];
 
     protected function casts(): array

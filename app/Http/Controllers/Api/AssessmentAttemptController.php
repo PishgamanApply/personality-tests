@@ -56,25 +56,43 @@ class AssessmentAttemptController extends Controller
             'data' => [
                 'attempt_id' => $attempt->id,
                 'status' => $attempt->status,
-                'started_at' => $attempt->started_at,
+                'started_at' => $attempt->started_at?->toIso8601String(),
                 'assessment' => [
                     'slug' => $assessment->slug,
                     'name' => $assessment->name,
                     'version' => $attempt->version->version,
                 ],
                 'questions' => $questions,
+                'time_limit_minutes' => $attempt->version->time_limit_minutes,
+                'expires_at' => $attempt->expires_at?->toIso8601String(),
             ],
         ], 201);
     }
     public function storeAnswers(
         Request $request,
-        AssessmentAttempt $attempt
+        AssessmentAttempt $attempt,
+        CalculateAssessmentResultService $service
     ): JsonResponse {
         // کاربر فقط اجازه ثبت پاسخ‌های نوبت آزمون خودش را دارد.
         abort_unless(
             $attempt->user_id === $request->user()->id,
             404
         );
+
+        $attempt->refresh();
+
+        if (
+            $attempt->status === 'in_progress' &&
+            $attempt->expires_at &&
+            now()->greaterThanOrEqualTo($attempt->expires_at)
+        ) {
+            $service->calculate($attempt, true);
+
+            return response()->json([
+                'message' => 'مهلت آزمون به پایان رسیده است.',
+                'status' => 'timed_out',
+            ], 409);
+        }
 
         $validated = $request->validate([
             'answers' => ['required', 'array', 'min:1'],
@@ -156,16 +174,23 @@ class AssessmentAttemptController extends Controller
             404
         );
 
-        $result = $service->calculate($attempt);
+        $timedOut = $attempt->expires_at
+            && now()->greaterThanOrEqualTo($attempt->expires_at);
+
+        $result = $service->calculate($attempt, (bool) $timedOut);
+
+        $attempt->refresh();
 
         return response()->json([
             'data' => [
                 'attempt_id' => $attempt->id,
-                'status' => 'completed',
+                'status' => $attempt->status,
                 'result' => [
                     'scores' => $result->scores,
                     'primary_type' => $result->primary_type,
-                    'calculated_at' => $result->calculated_at,
+                    'calculated_at' => $result->calculated_at
+                        ?->timezone(config('app.timezone'))
+                        ->toIso8601String(),
                 ],
             ],
         ]);
@@ -185,8 +210,12 @@ class AssessmentAttemptController extends Controller
                     return [
                         'attempt_id' => $attempt->id,
                         'status' => $attempt->status,
-                        'started_at' => $attempt->started_at,
-                        'completed_at' => $attempt->completed_at,
+                        'completed_at' => $attempt->completed_at
+                            ?->timezone(config('app.timezone'))
+                            ->toIso8601String(),
+                        'started_at' => $attempt->started_at
+                            ?->timezone(config('app.timezone'))
+                            ->toIso8601String(),
                         'assessment' => [
                             'slug' => $attempt->version->assessment->slug,
                             'name' => $attempt->version->assessment->name,
@@ -219,7 +248,10 @@ class AssessmentAttemptController extends Controller
 
         $attempt->load('result', 'version.assessment');
 
-        if ($attempt->status !== 'completed' || ! $attempt->result) {
+        if (
+            ! in_array($attempt->status, ['completed', 'timed_out'], true)
+            || ! $attempt->result
+        ) {
             return response()->json([
                 'message' => 'نتیجه این آزمون هنوز آماده نیست.',
             ], 409);
@@ -238,7 +270,9 @@ class AssessmentAttemptController extends Controller
                     'scores' => $attempt->result->scores,
                     'primary_type' => $attempt->result->primary_type,
                     'report' => $attempt->result->report,
-                    'calculated_at' => $attempt->result->calculated_at,
+                    'calculated_at' => $attempt->result->calculated_at
+                        ?->timezone(config('app.timezone'))
+                        ->toIso8601String(),
                 ],
             ],
         ]);

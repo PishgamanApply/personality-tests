@@ -40,11 +40,19 @@ class StartAssessmentService
             ]);
         }
 
+        $startedAt = now();
+
+        $timeLimitMinutes = $version->time_limit_minutes ?? 20;
+
+        $expiresAt = $startedAt->copy()
+            ->addMinutes($timeLimitMinutes);
+
         return AssessmentAttempt::create([
             'user_id' => $user->id,
             'assessment_version_id' => $version->id,
             'status' => 'in_progress',
-            'started_at' => now(),
+            'started_at' => $startedAt,
+            'expires_at' => $expiresAt,
         ]);
     }
 }

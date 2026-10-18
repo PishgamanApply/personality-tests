@@ -29,6 +29,10 @@ class AssessmentVersionsTable
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('time_limit_minutes')
+                    ->label('مدت آزمون')
+                    ->suffix(' دقیقه')
+                    ->sortable(),
             ])
             ->filters([
                 //
