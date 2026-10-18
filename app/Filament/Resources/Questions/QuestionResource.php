@@ -13,14 +13,29 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-
-use App\Filament\Resources\Questions\RelationManagers;
+use UnitEnum;
 
 class QuestionResource extends Resource
 {
     protected static ?string $model = Question::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQuestionMarkCircle;
+
+    protected static UnitEnum|string|null $navigationGroup = 'مدیریت آزمون‌ها';
+
+    protected static ?int $navigationSort = 3;
+
+    protected static ?string $recordTitleAttribute = 'prompt';
+
+    public static function getModelLabel(): string
+    {
+        return 'سؤال';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'بانک سؤالات';
+    }
 
     public static function form(Schema $schema): Schema
     {

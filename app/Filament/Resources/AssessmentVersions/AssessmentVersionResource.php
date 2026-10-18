@@ -13,14 +13,29 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-
-use App\Filament\Resources\AssessmentVersions\RelationManagers;
+use UnitEnum;
 
 class AssessmentVersionResource extends Resource
 {
     protected static ?string $model = AssessmentVersion::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
+
+    protected static UnitEnum|string|null $navigationGroup = 'مدیریت آزمون‌ها';
+
+    protected static ?int $navigationSort = 2;
+
+    protected static ?string $recordTitleAttribute = 'version';
+
+    public static function getModelLabel(): string
+    {
+        return 'نسخه آزمون';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'نسخه‌های آزمون';
+    }
 
     public static function form(Schema $schema): Schema
     {

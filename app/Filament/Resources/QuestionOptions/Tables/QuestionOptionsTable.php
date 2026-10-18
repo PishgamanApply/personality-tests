@@ -14,21 +14,23 @@ class QuestionOptionsTable
     {
         return $table
             ->columns([
-                TextColumn::make('question.id')
-                    ->searchable(),
-                TextColumn::make('option_key')
-                    ->searchable(),
                 TextColumn::make('sort_order')
-                    ->numeric()
+                    ->label('ترتیب')
                     ->sortable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('label')
+                    ->label('متن گزینه')
+                    ->searchable()
+                    ->wrap(),
+
+                TextColumn::make('option_key')
+                    ->label('شناسه گزینه')
+                    ->badge(),
+
+                TextColumn::make('question.prompt')
+                    ->label('سؤال مرتبط')
+                    ->limit(40)
+                    ->searchable(),
             ])
             ->filters([
                 //

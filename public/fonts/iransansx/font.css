@@ -1,0 +1,35 @@
+@font-face {
+    font-family: 'IRANSansX';
+    src: url('IRANSansXV.woff2') format('woff2-variations'),
+         url('IRANSansXV.woff2') format('woff2'),
+         url('IRANSansXV.woff') format('woff');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    --font-family: 'IRANSansX', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body,
+html,
+.fi-body,
+.fi-page,
+.fi-sidebar,
+.fi-topbar,
+.fi-modal,
+.fi-dropdown,
+.fi-ta,
+.fi-section,
+.fi-header,
+.fi-breadcrumbs,
+.fi-stat,
+.fi-badge,
+input,
+select,
+textarea,
+button {
+    font-family: 'IRANSansX', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+

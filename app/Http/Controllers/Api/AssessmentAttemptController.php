@@ -4,17 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
+use App\Models\AssessmentAnswer;
+use App\Models\AssessmentAttempt;
+use App\Services\CalculateAssessmentResultService;
 use App\Services\StartAssessmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-
-use App\Models\AssessmentAnswer;
-use App\Models\AssessmentAttempt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-
-use App\Services\CalculateAssessmentResultService;
-use App\Models\AssessmentResult;
 
 class AssessmentAttemptController extends Controller
 {
@@ -68,6 +65,7 @@ class AssessmentAttemptController extends Controller
             ],
         ], 201);
     }
+
     public function storeAnswers(
         Request $request,
         AssessmentAttempt $attempt,
@@ -164,6 +162,7 @@ class AssessmentAttemptController extends Controller
             'saved_count' => $savedCount,
         ]);
     }
+
     public function complete(
         Request $request,
         AssessmentAttempt $attempt,
@@ -195,7 +194,7 @@ class AssessmentAttemptController extends Controller
             ],
         ]);
     }
-    
+
     public function history(Request $request): JsonResponse
     {
         $attempts = AssessmentAttempt::query()
@@ -277,5 +276,4 @@ class AssessmentAttemptController extends Controller
             ],
         ]);
     }
-
 }

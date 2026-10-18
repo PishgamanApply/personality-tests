@@ -2,14 +2,6 @@
 
 namespace App\Filament\Resources\AssessmentAttempts\RelationManagers;
 
-use Filament\Actions\AssociateAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\DissociateAction;
-use Filament\Actions\DissociateBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -19,6 +11,8 @@ use Filament\Tables\Table;
 class AnswersRelationManager extends RelationManager
 {
     protected static string $relationship = 'answers';
+
+    protected static ?string $title = 'پاسخ‌های ثبت‌شده کاربر';
 
     public function form(Schema $schema): Schema
     {
@@ -60,5 +54,4 @@ class AnswersRelationManager extends RelationManager
             ->recordActions([])
             ->toolbarActions([]);
     }
-
 }

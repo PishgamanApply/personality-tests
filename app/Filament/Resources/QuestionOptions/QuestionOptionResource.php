@@ -8,17 +8,15 @@ use App\Filament\Resources\QuestionOptions\Pages\ListQuestionOptions;
 use App\Filament\Resources\QuestionOptions\Schemas\QuestionOptionForm;
 use App\Filament\Resources\QuestionOptions\Tables\QuestionOptionsTable;
 use App\Models\QuestionOption;
-use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class QuestionOptionResource extends Resource
 {
     protected static ?string $model = QuestionOption::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema
     {

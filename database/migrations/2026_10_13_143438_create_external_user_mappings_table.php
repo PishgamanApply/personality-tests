@@ -9,7 +9,6 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    
     public function up(): void
     {
         Schema::create('external_user_mappings', function (Blueprint $table) {
@@ -31,7 +30,6 @@ return new class extends Migration
             );
         });
     }
-
 
     /**
      * Reverse the migrations.

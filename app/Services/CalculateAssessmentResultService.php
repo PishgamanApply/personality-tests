@@ -12,8 +12,7 @@ class CalculateAssessmentResultService
     public function calculate(
         AssessmentAttempt $attempt,
         bool $timedOut = false
-    ): AssessmentResult
-    {
+    ): AssessmentResult {
         return DB::transaction(function () use ($attempt, $timedOut) {
             $attempt = AssessmentAttempt::query()
                 ->with([
