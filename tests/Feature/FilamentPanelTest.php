@@ -152,4 +152,28 @@ class FilamentPanelTest extends TestCase
         $resultRes->assertSee('اطلاعات عمومی ارزیابی');
         $resultRes->assertSee('نتایج تحلیل و نمرات روان‌سنجی');
     }
+
+    public function test_admin_can_view_api_documentation_page(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $response = $this->actingAs($admin)->get('/panel/api-documentation');
+
+        $response->assertOk();
+        $response->assertSee('مستندات تعاملی وب‌سرویس‌ها');
+        $response->assertSee('کنسول تعاملی تست و مستندات Swagger');
+        $response->assertSee('/docs/swagger-ui');
+    }
+
+    public function test_openapi_yaml_and_swagger_ui_routes_work(): void
+    {
+        $yamlResponse = $this->get('/docs/openapi.yaml');
+        $yamlResponse->assertOk();
+        $this->assertStringContainsString('openapi: 3.0.3', $yamlResponse->getContent());
+
+        $swaggerUiResponse = $this->get('/docs/swagger-ui');
+        $swaggerUiResponse->assertOk();
+        $this->assertStringContainsString('SwaggerUIBundle', $swaggerUiResponse->getContent());
+        $this->assertStringContainsString('/docs/openapi.yaml', $swaggerUiResponse->getContent());
+    }
 }

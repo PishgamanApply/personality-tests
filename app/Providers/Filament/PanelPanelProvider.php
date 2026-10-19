@@ -42,6 +42,7 @@ class PanelPanelProvider extends PanelProvider
                 'مدیریت آزمون‌ها',
                 'ارزیابی‌ها و نتایج',
                 'کاربران و دسترسی‌ها',
+                'مستندات و یکپارچه‌سازی',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

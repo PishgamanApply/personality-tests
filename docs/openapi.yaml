@@ -1,0 +1,711 @@
+openapi: 3.0.3
+info:
+  title: سامانه‌ مدیریت آزمون‌های شخصیت‌شناسی (Personality Assessments API)
+  description: |
+    مستند جامع رابط برنامه‌نویسی کاربردی (API) سامانه آزمون‌های روان‌شناختی و ارزیابی پرسنل.
+    این مستند برای تیم توسعه سامانه اصلی سازمان جهت پیاده‌سازی ورود یکپارچه (SSO) و استعلام نتایج آزمون‌های سازمانی تدوین شده است.
+  version: 1.0.0
+  contact:
+    name: تیم فنی سامانه ارزیابی
+servers:
+  - url: http://localhost:8000/api
+    description: سرور توسعه محلی
+  - url: https://assessment-api.company.com/api
+    description: سرور پروداکشن / استیجینگ
+
+tags:
+  - name: Authentication & SSO
+    description: احراز هویت یکپارچه بین سامانه اصلی و سامانه آزمون
+  - name: Assessments
+    description: دریافت فهرست آزمون‌های فعال و انتشاریافته
+  - name: Attempts & Test Taking
+    description: فرایند آغاز آزمون، پاسخ‌دهی تدریجی و ثبت نهایی
+  - name: External Integration
+    description: وب‌سرویس‌های سرور-به-سرور (S2S) ویژه اتصال سامانه جامع سازمان
+
+paths:
+  /auth/sso:
+    post:
+      tags:
+        - Authentication & SSO
+      summary: ورود یکپارچه (SSO) با توکن امضاشده از سامانه اصلی
+      description: |
+        سامانه اصلی سازمان با استفاده از کلید محرمانه مشترک (`SSO_SECRET`) توکن امضاشده HMAC-SHA256 تولید کرده و کارمند را به همراه آن به سامانه آزمون ارسال می‌کند.
+        این اندپوینت توکن را اعتبارسنجی کرده و توکن دسترسی `Sanctum` جهت استفاده در فرانت‌اند صادر می‌کند.
+      operationId: ssoLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: توکن امضاشده با ساختار `base64Url(payload).base64Url(signature)`
+                  example: "eyJleHRlcm5hbF91c2VyX2lkIjoiZW1wXzEwMDEiLCJuYW1lIjoi2LnZhNuMINix2LbYp9uM24wiLCJlbWFpbCI6ImFsaUBjb21wYW55LmNvbSIsImV4cGlyZXNfYXQiOjE3MjkzNTAwMDB9.EXAMPLE_SIGNATURE"
+      responses:
+        '200':
+          description: احراز هویت موفق و صدور توکن دسترسی
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: ورود با موفقیت انجام شد.
+                  token:
+                    type: string
+                    example: 1|9a8b7c6d5e4f3a2b1c...
+                  token_type:
+                    type: string
+                    example: Bearer
+                  user:
+                    $ref: '#/components/schemas/UserDto'
+        '422':
+          description: خطای اعتبارسنجی فرمت یا امضای نامعتبر / توکن منقضی‌شده
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication & SSO
+      summary: دریافت اطلاعات پروفایل کاربر احراز هویت شده جاری
+      security:
+        - SanctumBearerAuth: []
+      responses:
+        '200':
+          description: اطلاعات کاربر
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication & SSO
+      summary: خروج و ابطال توکن دسترسی جاری
+      security:
+        - SanctumBearerAuth: []
+      responses:
+        '200':
+          description: خروج موفق
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: خروج با موفقیت انجام شد.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /assessments:
+    get:
+      tags:
+        - Assessments
+      summary: فهرست آزمون‌های فعال و منتشر شده
+      description: بازگرداندن کلیه آزمون‌های آماده برگزاری (شامل DISC و ...) به همراه جدیدترین نسخه منتشرشده
+      responses:
+        '200':
+          description: لیست آزمون‌ها
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AssessmentItem'
+
+  /assessments/{slug}/attempts:
+    post:
+      tags:
+        - Attempts & Test Taking
+      summary: آغاز یک نوبت آزمون جدید
+      description: |
+        ایجاد نوبت آزمون برای کاربر جاری و بازگرداندن سوالات و گزینه‌ها.
+        در صورتی که نوبت ناتمامی با مهلت منقضی‌نشده از قبل وجود داشته باشد، همان برگردانده می‌شود.
+      security:
+        - SanctumBearerAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: شناسه متنی آزمون (مثلاً disc)
+          schema:
+            type: string
+            example: disc
+      responses:
+        '201':
+          description: نوبت آزمون با موفقیت ساخته شد و سوالات دریافت گردید
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AttemptDetailWithQuestions'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: آزمون مورد نظر یافت نشد یا غیرفعال است
+
+  /attempts/{attempt}/answers:
+    put:
+      tags:
+        - Attempts & Test Taking
+      summary: ذخیره یا به‌روزرسانی تدریجی پاسخ‌های کاربر
+      description: امکان ارسال یک یا چند پاسخ به سوالات آزمون در حال برگزاری. پاسخ‌ها به صورت تدریجی ثبت می‌گردند.
+      security:
+        - SanctumBearerAuth: []
+      parameters:
+        - name: attempt
+          in: path
+          required: true
+          description: شناسه عددی نوبت آزمون (attempt_id)
+          schema:
+            type: integer
+            example: 12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - answers
+              properties:
+                answers:
+                  type: array
+                  description: لیست پاسخ‌ها
+                  items:
+                    type: object
+                    required:
+                      - question_id
+                      - option_id
+                    properties:
+                      question_id:
+                        type: integer
+                        example: 1
+                      option_id:
+                        type: integer
+                        example: 4
+      responses:
+        '200':
+          description: پاسخ‌ها با موفقیت ذخیره شدند
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: پاسخ‌ها با موفقیت ذخیره شدند.
+                  saved_count:
+                    type: integer
+                    example: 24
+        '404':
+          description: نوبت آزمون یافت نشد یا متعلق به کاربر جاری نیست
+        '409':
+          description: زمان قانونی آزمون منقضی شده است (timed_out)
+        '422':
+          description: خطای گزینه‌های انتخابی یا عدم تعلق سوال به این آزمون
+
+  /attempts/{attempt}/complete:
+    post:
+      tags:
+        - Attempts & Test Taking
+      summary: ثبت نهایی و اتمام آزمون (محاسبه نمره و کارنامه)
+      description: با صدا زدن این اندپوینت، وضعیت آزمون به completed تغییر یافته و موتور تحلیل نتایج (مانند الگوریتم DISC) نتیجه را استخراج می‌کند.
+      security:
+        - SanctumBearerAuth: []
+      parameters:
+        - name: attempt
+          in: path
+          required: true
+          description: شناسه عددی نوبت آزمون
+          schema:
+            type: integer
+            example: 12
+      responses:
+        '200':
+          description: آزمون با موفقیت پایان یافت و کارنامه صادر گردید
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AttemptSummaryWithResult'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: نوبت آزمون یافت نشد یا متعلق به کاربر نیست
+
+  /attempts/{attempt}/result:
+    get:
+      tags:
+        - Attempts & Test Taking
+      summary: دریافت کارنامه و تحلیل تفصیلی آزمون
+      security:
+        - SanctumBearerAuth: []
+      parameters:
+        - name: attempt
+          in: path
+          required: true
+          description: شناسه نوبت آزمون
+          schema:
+            type: integer
+            example: 12
+      responses:
+        '200':
+          description: دریافت گزارش نهایی
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AttemptFullReport'
+        '409':
+          description: آزمون هنوز تکمیل نشده و نتیجه آماده نیست
+
+  /my/attempts:
+    get:
+      tags:
+        - Attempts & Test Taking
+      summary: تاریخچه آزمون‌های کاربر جاری
+      security:
+        - SanctumBearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: شماره صفحه
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: لیست نوبت‌های قبلی کاربر به صورت صفحه‌بندی‌شده
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AttemptHistoryItem'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /external/users/{externalUserId}/results:
+    get:
+      tags:
+        - External Integration
+      summary: استعلام نتایج آزمون‌های یک کارمند (ارتباط سرور-به-سرور)
+      description: |
+        این وب‌سرویس اختصاصاً برای بک‌اند سامانه اصلی سازمان تعبیه شده است تا بدون نیاز به لاگین کاربر، سوابق و نتایج آزمون‌های هر پرسنل را از طریق شناسه سازمانی (`externalUserId`) استعلام کند.
+        احراز هویت این اندپوینت با هدر امنیتی `X-Server-Key` انجام می‌پذیرد.
+      security:
+        - ServerKeyAuth: []
+      parameters:
+        - name: externalUserId
+          in: path
+          required: true
+          description: شناسه کارمند در دیتابیس سامانه اصلی (مثلاً کد پرسنلی یا UUID)
+          schema:
+            type: string
+            example: emp_1001
+        - name: source_system
+          in: query
+          required: false
+          description: نام کلید سامانه مبدأ (پیش‌فرض main_system)
+          schema:
+            type: string
+            default: main_system
+            example: main_system
+      responses:
+        '200':
+          description: اطلاعات نتایج آزمون‌های کارمند
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalUserResultsResponse'
+        '403':
+          description: کلید امنیتی سرور (X-Server-Key) نامعتبر است
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: کلید احراز هویت سرور (X-Server-Key) نامعتبر است.
+        '404':
+          description: کاربری با این شناسه در سامانه آزمون یافت نشد
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: کاربری با این شناسه در سامانه آزمون یافت نشد.
+                  external_user_id:
+                    type: string
+                    example: emp_1001
+                  data:
+                    type: array
+                    items: {}
+                    example: []
+
+components:
+  securitySchemes:
+    SanctumBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
+      description: توکن Bearer دریافت شده از فرایند ورود یکپارچه (/api/auth/sso)
+    ServerKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Server-Key
+      description: کلید اختصاصی امنیتی سرور-به-سرور سامانه اصلی سازمان (SSO_SERVER_KEY)
+
+  responses:
+    UnauthorizedError:
+      description: دسترسی غیرمجاز - توکن احراز هویت ارسال نشده یا معتبر نیست
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Unauthenticated.
+
+  schemas:
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 15
+        name:
+          type: string
+          example: علی رضایی
+        email:
+          type: string
+          example: ali@company.com
+        external_user_id:
+          type: string
+          example: emp_1001
+        source_system:
+          type: string
+          example: main_system
+
+    AssessmentItem:
+      type: object
+      properties:
+        slug:
+          type: string
+          example: disc
+        name:
+          type: string
+          example: آزمون رفتارشناسی دیسک (DISC)
+        description:
+          type: string
+          example: آزمون استاندارد سنجش تمایلات رفتاری و ارتباطی در محیط کار
+        version:
+          type: string
+          example: 1.0.0
+
+    QuestionOption:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        key:
+          type: string
+          example: opt_d
+        label:
+          type: string
+          example: قاطع، نتیجه‌گرا و ریسک‌پذیر
+
+    AssessmentQuestion:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 12
+        key:
+          type: string
+          example: q1
+        prompt:
+          type: string
+          example: در مواجهه با چالش‌های غیرمنتظره در محل کار، رفتار معمول شما کدام است؟
+        type:
+          type: string
+          example: single_choice
+        required:
+          type: boolean
+          example: true
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionOption'
+
+    AttemptDetailWithQuestions:
+      type: object
+      properties:
+        attempt_id:
+          type: integer
+          example: 104
+        status:
+          type: string
+          example: in_progress
+        started_at:
+          type: string
+          format: date-time
+        assessment:
+          type: object
+          properties:
+            slug:
+              type: string
+              example: disc
+            name:
+              type: string
+              example: آزمون رفتارشناسی دیسک (DISC)
+            version:
+              type: string
+              example: 1.0.0
+        time_limit_minutes:
+          type: integer
+          nullable: true
+          example: 30
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentQuestion'
+
+    AttemptSummaryWithResult:
+      type: object
+      properties:
+        attempt_id:
+          type: integer
+          example: 104
+        status:
+          type: string
+          example: completed
+        result:
+          type: object
+          properties:
+            scores:
+              type: object
+              example:
+                D: 28
+                I: 22
+                S: 15
+                C: 18
+            primary_type:
+              type: string
+              example: D
+            calculated_at:
+              type: string
+              format: date-time
+
+    AttemptFullReport:
+      type: object
+      properties:
+        attempt_id:
+          type: integer
+          example: 104
+        status:
+          type: string
+          example: completed
+        assessment:
+          type: object
+          properties:
+            slug:
+              type: string
+              example: disc
+            name:
+              type: string
+              example: آزمون دیسک
+            version:
+              type: string
+              example: 1.0.0
+        result:
+          type: object
+          properties:
+            scores:
+              type: object
+              example:
+                D: 28
+                I: 22
+                S: 15
+                C: 18
+            primary_type:
+              type: string
+              example: D
+            report:
+              type: object
+              description: گزارش تحلیلی کامل با جزئیات نقاط قوت، سبک کاری، توصیه‌های شغلی
+            calculated_at:
+              type: string
+              format: date-time
+
+    AttemptHistoryItem:
+      type: object
+      properties:
+        attempt_id:
+          type: integer
+          example: 104
+        status:
+          type: string
+          example: completed
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        assessment:
+          type: object
+          properties:
+            slug:
+              type: string
+              example: disc
+            name:
+              type: string
+              example: آزمون دیسک
+            version:
+              type: string
+              example: 1.0.0
+        result:
+          type: object
+          nullable: true
+          properties:
+            scores:
+              type: object
+            primary_type:
+              type: string
+
+    ExternalAttemptResultItem:
+      type: object
+      properties:
+        attempt_id:
+          type: integer
+          example: 104
+        status:
+          type: string
+          example: completed
+        assessment:
+          type: object
+          properties:
+            slug:
+              type: string
+              example: disc
+            name:
+              type: string
+              example: آزمون رفتارشناسی دیسک (DISC)
+            version:
+              type: string
+              example: 1.0.0
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        result:
+          type: object
+          nullable: true
+          properties:
+            scores:
+              type: object
+              example:
+                D: 28
+                I: 22
+                S: 15
+                C: 18
+            primary_type:
+              type: string
+              example: D
+            report:
+              type: object
+            calculated_at:
+              type: string
+              format: date-time
+
+    ExternalUserResultsResponse:
+      type: object
+      properties:
+        external_user_id:
+          type: string
+          example: emp_1001
+        user:
+          type: object
+          properties:
+            name:
+              type: string
+              example: علی رضایی
+            email:
+              type: string
+              example: ali@company.com
+        total_attempts:
+          type: integer
+          example: 1
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalAttemptResultItem'
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          example: 1
+        last_page:
+          type: integer
+          example: 5
+        total:
+          type: integer
+          example: 92
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: دیتای ارسال شده نامعتبر است.
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+

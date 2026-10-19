@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'sso' => [
+        'secret' => env('SSO_SECRET', 'default-dev-sso-secret-change-in-production'),
+        'server_key' => env('SSO_SERVER_KEY', 'default-dev-server-key-change-in-production'),
+        'source_system' => env('SSO_SOURCE_SYSTEM', 'main_system'),
+    ],
+
 ];
