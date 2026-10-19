@@ -63,6 +63,36 @@ class AssessmentResultInfolist
 
                         TextEntry::make('report')
                             ->label('گزارش تحلیلی و تفسیر بالینی / رفتاری')
+                            ->formatStateUsing(function ($state) {
+                                if (! is_array($state)) {
+                                    return $state;
+                                }
+
+                                $lines = [];
+                                if (! empty($state['type_title'])) {
+                                    $lines[] = "🎯 {$state['type_title']}";
+                                }
+                                if (! empty($state['summary'])) {
+                                    $lines[] = "📝 خلاصه رفتارشناسی: {$state['summary']}";
+                                }
+                                if (! empty($state['traits'])) {
+                                    $lines[] = "✨ ویژگی‌های کلیدی:\n• ".implode("\n• ", $state['traits']);
+                                }
+                                if (! empty($state['strengths'])) {
+                                    $lines[] = "💪 نقاط قوت کاری:\n• ".implode("\n• ", $state['strengths']);
+                                }
+                                if (! empty($state['growth_areas'])) {
+                                    $lines[] = "🔍 زمینه‌های رشد و بهبود:\n• ".implode("\n• ", $state['growth_areas']);
+                                }
+                                if (! empty($state['work_environment'])) {
+                                    $lines[] = "🏢 محیط کاری مطلوب: {$state['work_environment']}";
+                                }
+                                if (! empty($state['limitations'])) {
+                                    $lines[] = "⚠️ محدودیت‌های ارزیابی:\n• ".implode("\n• ", $state['limitations']);
+                                }
+
+                                return implode("\n\n", $lines);
+                            })
                             ->placeholder('متن گزارشی ثبت نشده است')
                             ->columnSpanFull(),
                     ])

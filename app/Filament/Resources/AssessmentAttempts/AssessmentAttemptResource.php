@@ -87,11 +87,13 @@ class AssessmentAttemptResource extends Resource
                         ->formatStateUsing(fn ($state) => match ($state) {
                             'completed' => 'تکمیل‌شده',
                             'in_progress' => 'در حال انجام',
+                            'timed_out' => 'پایان مهلت (منقضی‌شده)',
                             default => $state,
                         })
                         ->color(fn (string $state): string => match ($state) {
                             'completed' => 'success',
                             'in_progress' => 'warning',
+                            'timed_out' => 'danger',
                             default => 'gray',
                         }),
 
@@ -131,6 +133,36 @@ class AssessmentAttemptResource extends Resource
 
                     TextEntry::make('result.report')
                         ->label('متن گزارش و تفسیر روان‌شناختی')
+                        ->formatStateUsing(function ($state) {
+                            if (! is_array($state)) {
+                                return $state;
+                            }
+
+                            $lines = [];
+                            if (! empty($state['type_title'])) {
+                                $lines[] = "🎯 {$state['type_title']}";
+                            }
+                            if (! empty($state['summary'])) {
+                                $lines[] = "📝 خلاصه رفتارشناسی: {$state['summary']}";
+                            }
+                            if (! empty($state['traits'])) {
+                                $lines[] = "✨ ویژگی‌های کلیدی:\n• ".implode("\n• ", $state['traits']);
+                            }
+                            if (! empty($state['strengths'])) {
+                                $lines[] = "💪 نقاط قوت کاری:\n• ".implode("\n• ", $state['strengths']);
+                            }
+                            if (! empty($state['growth_areas'])) {
+                                $lines[] = "🔍 زمینه‌های رشد و بهبود:\n• ".implode("\n• ", $state['growth_areas']);
+                            }
+                            if (! empty($state['work_environment'])) {
+                                $lines[] = "🏢 محیط کاری مطلوب: {$state['work_environment']}";
+                            }
+                            if (! empty($state['limitations'])) {
+                                $lines[] = "⚠️ محدودیت‌های ارزیابی:\n• ".implode("\n• ", $state['limitations']);
+                            }
+
+                            return implode("\n\n", $lines);
+                        })
                         ->placeholder('گزارشی تولید نشده است')
                         ->columnSpanFull(),
                 ])

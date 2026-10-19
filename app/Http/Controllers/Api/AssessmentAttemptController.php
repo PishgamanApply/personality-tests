@@ -237,13 +237,24 @@ class AssessmentAttemptController extends Controller
 
     public function showResult(
         Request $request,
-        AssessmentAttempt $attempt
+        AssessmentAttempt $attempt,
+        CalculateAssessmentResultService $service
     ): JsonResponse {
         // فقط مالک تلاش اجازه مشاهده آن را دارد.
         abort_unless(
             $attempt->user_id === $request->user()->id,
             404
         );
+
+        // در صورتی که مهلت آزمون گذشته باشد ولی هنوز وضعیت آن محاسبه نشده باشد، خودکار محاسبه می‌شود
+        if (
+            $attempt->status === 'in_progress' &&
+            $attempt->expires_at &&
+            now()->greaterThanOrEqualTo($attempt->expires_at)
+        ) {
+            $service->calculate($attempt, true);
+            $attempt->refresh();
+        }
 
         $attempt->load('result', 'version.assessment');
 

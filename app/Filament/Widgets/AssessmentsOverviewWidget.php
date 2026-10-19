@@ -18,6 +18,7 @@ class AssessmentsOverviewWidget extends BaseWidget
         $totalAssessments = Assessment::where('is_active', true)->count();
         $totalAttempts = AssessmentAttempt::count();
         $completedAttempts = AssessmentAttempt::where('status', 'completed')->count();
+        $timedOutAttempts = AssessmentAttempt::where('status', 'timed_out')->count();
         $totalResults = AssessmentResult::count();
         $totalUsers = User::count();
 
@@ -30,14 +31,19 @@ class AssessmentsOverviewWidget extends BaseWidget
 
         $topTypeDisplay = $mostCommonType ? "تیپ {$mostCommonType->primary_type} ({$mostCommonType->count} نفر)" : '—';
 
+        $attemptsDescription = "{$completedAttempts} تکمیل‌شده";
+        if ($timedOutAttempts > 0) {
+            $attemptsDescription .= " | {$timedOutAttempts} منقضی‌شده";
+        }
+
         return [
             Stat::make('آزمون‌های فعال', (string) $totalAssessments)
                 ->description('تعداد آزمون‌های فعال در سامانه')
                 ->descriptionIcon('heroicon-m-clipboard-document-check')
                 ->color('success'),
 
-            Stat::make('کل آزمون‌های انجام‌شده', (string) $totalAttempts)
-                ->description("{$completedAttempts} تکمیل‌شده")
+            Stat::make('کل آزمون‌های ثبت‌شده', (string) $totalAttempts)
+                ->description($attemptsDescription)
                 ->descriptionIcon('heroicon-m-academic-cap')
                 ->color('primary'),
 

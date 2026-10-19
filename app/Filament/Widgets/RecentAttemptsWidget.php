@@ -39,11 +39,13 @@ class RecentAttemptsWidget extends BaseWidget
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'completed' => 'تکمیل‌شده',
                         'in_progress' => 'در حال انجام',
+                        'timed_out' => 'پایان مهلت (منقضی‌شده)',
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
                         'completed' => 'success',
                         'in_progress' => 'warning',
+                        'timed_out' => 'danger',
                         default => 'gray',
                     }),
 

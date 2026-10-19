@@ -9,6 +9,10 @@ use Illuminate\Validation\ValidationException;
 
 class CalculateAssessmentResultService
 {
+    public function __construct(
+        protected DiscReportService $reportService
+    ) {}
+
     public function calculate(
         AssessmentAttempt $attempt,
         bool $timedOut = false
@@ -89,10 +93,25 @@ class CalculateAssessmentResultService
                 )
             );
 
-            // در صورت تساوی، فعلاً primary_type را null می‌گذاریم.
-            $primaryType = count($topDimensions) === 1
-                ? $topDimensions[0]
-                : null;
+            // مدیریت تساوی‌ها:
+            // اگر هیچ پاسخی ثبت نشده باشد یا همه ابعاد دقیقاً برابر باشند، null در نظر گرفته می‌شود.
+            // در تساوی بین ۲ یا ۳ بعد، ترکیب آنها به عنوان تیپ غالب درج می‌گردد (مثلاً D/I).
+            if ($maxScore === 0 || count($topDimensions) === 4) {
+                $primaryType = null;
+            } elseif (count($topDimensions) === 1) {
+                $primaryType = $topDimensions[0];
+            } else {
+                $primaryType = implode('/', $topDimensions);
+            }
+
+            $report = $this->reportService->generate(
+                scores: $scores,
+                primaryType: $primaryType,
+                topDimensions: $topDimensions,
+                isTimedOut: $timedOut,
+                totalQuestions: $questions->count(),
+                answeredCount: $answers->count()
+            );
 
             $result = AssessmentResult::updateOrCreate(
                 [
@@ -101,10 +120,7 @@ class CalculateAssessmentResultService
                 [
                     'scores' => $scores,
                     'primary_type' => $primaryType,
-                    'report' => [
-                        'scores' => $scores,
-                        'primary_type' => $primaryType,
-                    ],
+                    'report' => $report,
                     'calculated_at' => now(),
                 ]
             );
