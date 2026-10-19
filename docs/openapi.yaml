@@ -8,10 +8,10 @@ info:
   contact:
     name: تیم فنی سامانه ارزیابی
 servers:
+  - url: https://tests.2visa.ir/api
+    description: سرور پروداکشن / استیجینگ
   - url: http://localhost:8000/api
     description: سرور توسعه محلی
-  - url: https://assessment-api.company.com/api
-    description: سرور پروداکشن / استیجینگ
 
 tags:
   - name: Authentication & SSO
