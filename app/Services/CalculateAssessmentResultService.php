@@ -4,13 +4,17 @@ namespace App\Services;
 
 use App\Models\AssessmentAttempt;
 use App\Models\AssessmentResult;
+use App\Services\AssessmentScoring\AssessmentScoringStrategyInterface;
+use App\Services\AssessmentScoring\DiscScoringStrategy;
+use App\Services\AssessmentScoring\MbtiScoringStrategy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CalculateAssessmentResultService
 {
     public function __construct(
-        protected DiscReportService $reportService
+        protected DiscScoringStrategy $discStrategy,
+        protected MbtiScoringStrategy $mbtiStrategy
     ) {}
 
     public function calculate(
@@ -20,6 +24,7 @@ class CalculateAssessmentResultService
         return DB::transaction(function () use ($attempt, $timedOut) {
             $attempt = AssessmentAttempt::query()
                 ->with([
+                    'version.assessment',
                     'version.questions.options',
                     'answers.selectedOption',
                     'result',
@@ -34,7 +39,6 @@ class CalculateAssessmentResultService
             }
 
             $questions = $attempt->version->questions;
-
             $answers = $attempt->answers->keyBy('question_id');
 
             // در پایان عادی، پاسخ سؤال‌های اجباری الزامی است.
@@ -52,65 +56,14 @@ class CalculateAssessmentResultService
                 }
             }
 
-            $scores = [
-                'D' => 0,
-                'I' => 0,
-                'S' => 0,
-                'C' => 0,
-            ];
+            $slug = strtolower($attempt->version?->assessment?->slug ?? 'disc');
+            $strategy = $this->resolveStrategy($slug);
 
-            foreach ($answers as $answer) {
-                $option = $answer->selectedOption;
-
-                if (! $option) {
-                    throw ValidationException::withMessages([
-                        'answers' => 'یکی از پاسخ‌های ثبت‌شده معتبر نیست.',
-                    ]);
-                }
-
-                $values = $option->score_values ?? [];
-
-                foreach ($scores as $dimension => $currentScore) {
-                    $value = $values[$dimension] ?? 0;
-
-                    if (! is_numeric($value)) {
-                        throw ValidationException::withMessages([
-                            'scoring' => 'تنظیم امتیازدهی یکی از گزینه‌ها معتبر نیست.',
-                        ]);
-                    }
-
-                    $scores[$dimension] += $value;
-                }
-            }
-
-            // تعیین بُعد دارای بیشترین امتیاز
-            $maxScore = max($scores);
-
-            $topDimensions = array_keys(
-                array_filter(
-                    $scores,
-                    fn ($score) => $score === $maxScore
-                )
-            );
-
-            // مدیریت تساوی‌ها:
-            // اگر هیچ پاسخی ثبت نشده باشد یا همه ابعاد دقیقاً برابر باشند، null در نظر گرفته می‌شود.
-            // در تساوی بین ۲ یا ۳ بعد، ترکیب آنها به عنوان تیپ غالب درج می‌گردد (مثلاً D/I).
-            if ($maxScore === 0 || count($topDimensions) === 4) {
-                $primaryType = null;
-            } elseif (count($topDimensions) === 1) {
-                $primaryType = $topDimensions[0];
-            } else {
-                $primaryType = implode('/', $topDimensions);
-            }
-
-            $report = $this->reportService->generate(
-                scores: $scores,
-                primaryType: $primaryType,
-                topDimensions: $topDimensions,
-                isTimedOut: $timedOut,
-                totalQuestions: $questions->count(),
-                answeredCount: $answers->count()
+            $scoringResult = $strategy->calculate(
+                attempt: $attempt,
+                questions: $questions,
+                answers: $answers,
+                timedOut: $timedOut
             );
 
             $result = AssessmentResult::updateOrCreate(
@@ -118,9 +71,9 @@ class CalculateAssessmentResultService
                     'assessment_attempt_id' => $attempt->id,
                 ],
                 [
-                    'scores' => $scores,
-                    'primary_type' => $primaryType,
-                    'report' => $report,
+                    'scores' => $scoringResult['scores'],
+                    'primary_type' => $scoringResult['primary_type'],
+                    'report' => $scoringResult['report'],
                     'calculated_at' => now(),
                 ]
             );
@@ -134,5 +87,16 @@ class CalculateAssessmentResultService
 
             return $result;
         });
+    }
+
+    /**
+     * انتخاب استراتژی محاسبه امتیاز بر اساس اسلاگ آزمون.
+     */
+    protected function resolveStrategy(string $slug): AssessmentScoringStrategyInterface
+    {
+        return match ($slug) {
+            'mbti' => $this->mbtiStrategy,
+            default => $this->discStrategy,
+        };
     }
 }
