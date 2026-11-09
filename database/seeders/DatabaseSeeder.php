@@ -36,6 +36,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             DiscAssessmentSeeder::class,
             MbtiAssessmentSeeder::class,
+            SseitAssessmentSeeder::class,
         ]);
     }
 }

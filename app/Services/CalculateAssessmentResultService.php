@@ -7,6 +7,7 @@ use App\Models\AssessmentResult;
 use App\Services\AssessmentScoring\AssessmentScoringStrategyInterface;
 use App\Services\AssessmentScoring\DiscScoringStrategy;
 use App\Services\AssessmentScoring\MbtiScoringStrategy;
+use App\Services\AssessmentScoring\SseitScoringStrategy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -14,7 +15,8 @@ class CalculateAssessmentResultService
 {
     public function __construct(
         protected DiscScoringStrategy $discStrategy,
-        protected MbtiScoringStrategy $mbtiStrategy
+        protected MbtiScoringStrategy $mbtiStrategy,
+        protected SseitScoringStrategy $sseitStrategy
     ) {}
 
     public function calculate(
@@ -96,6 +98,7 @@ class CalculateAssessmentResultService
     {
         return match ($slug) {
             'mbti' => $this->mbtiStrategy,
+            'sseit', 'eis', 'schutte' => $this->sseitStrategy,
             default => $this->discStrategy,
         };
     }

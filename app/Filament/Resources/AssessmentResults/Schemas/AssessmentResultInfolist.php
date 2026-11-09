@@ -55,7 +55,10 @@ class AssessmentResultInfolist
                                 }
                                 $parts = [];
                                 foreach ($state as $dim => $score) {
-                                    $parts[] = "بُعد {$dim}: {$score}";
+                                    if (is_array($score)) {
+                                        continue;
+                                    }
+                                    $parts[] = "{$dim}: {$score}";
                                 }
 
                                 return implode(' | ', $parts);
